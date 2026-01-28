@@ -393,6 +393,47 @@ class ScriptTask(StateMachine, GameUi, BaseActivity, SwitchSoul, ActivityShikiga
                    random_click_swipt_enable=getattr(self.conf.general_battle, f'enable_{self.climb_type}_anti_detect',
                                                      False), )
 
+    def battle_loop(self, max_count: int = 0, timeout: float = 60) -> None:
+        """
+        简单的挑战-战斗循环
+        :param max_count: 最大战斗次数，0表示无限制
+        :param timeout: 等待挑战按钮的超时时间（秒），超时后退出循环
+        """
+        logger.hr('Start battle loop', 1)
+        count = 0
+        wait_timer = Timer(timeout)
+        wait_timer.start()
+        while True:
+            self.screenshot()
+            # 检查次数限制
+            if max_count > 0 and count >= max_count:
+                logger.info(f'Battle loop reached max count: {max_count}')
+                break
+            # 处理确认弹窗
+            if self.appear_then_click(self.I_UI_CONFIRM, interval=0.5):
+                wait_timer.reset()
+                continue
+            if self.appear_then_click(self.I_UI_CONFIRM_SAMLL, interval=0.5):
+                wait_timer.reset()
+                continue
+            # 处理奖励弹窗
+            if self.ui_reward_appear_click():
+                wait_timer.reset()
+                continue
+            # 检查是否在战斗界面（有挑战按钮）
+            if not self.ocr_appear(self.O_FIRE):
+                # 超时检查：长时间无法识别挑战按钮
+                if wait_timer.reached():
+                    logger.warning(f'Battle loop timeout: cannot detect fire button for {timeout}s')
+                    break
+                continue
+            # 识别到挑战按钮，重置计时器
+            wait_timer.reset()
+            # 点击挑战并进行战斗
+            if self.start_battle():
+                count += 1
+                logger.info(f'Battle completed, total count: {count}')
+
     def random_reward_click(self, exclude_click: list = None, click_now: bool = True) -> RuleClick:
         """
         随机点击
