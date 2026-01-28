@@ -443,6 +443,14 @@ class ScriptTask(StateMachine, GameUi, BaseActivity, SwitchSoul, ActivityShikiga
             if self.ui_reward_appear_click():
                 wait_timer.reset()
                 continue
+            # 如果正在战斗中，等待战斗结束
+            if self.is_in_battle(False):
+                logger.info('Detected in battle, running general battle')
+                wait_timer.reset()
+                self.run_general_battle(config=self.get_general_battle_conf())
+                count += 1
+                logger.info(f'Battle completed, total count: {count}')
+                continue
             # OCR 检测间隔控制
             if not ocr_limit_timer.reached():
                 continue
