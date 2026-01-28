@@ -419,7 +419,7 @@ class ScriptTask(StateMachine, GameUi, BaseActivity, SwitchSoul, ActivityShikiga
 
     def battle_loop(self, max_count: int = 0, timeout: float = 60) -> None:
         """
-        简单的挑战-战斗循环
+        简单的挑战-战斗循环，参考 _run_pass 实现
         :param max_count: 最大战斗次数，0表示无限制
         :param timeout: 等待挑战按钮的超时时间（秒），超时后退出循环
         """
@@ -456,10 +456,31 @@ class ScriptTask(StateMachine, GameUi, BaseActivity, SwitchSoul, ActivityShikiga
                 continue
             # 识别到挑战按钮，重置计时器
             wait_timer.reset()
-            # 点击挑战并进行战斗 (start_battle 内部会调用 run_general_battle 等待战斗结束)
-            self.start_battle()
+            # 点击挑战并进行战斗
+            self._do_battle()
             count += 1
             logger.info(f'Battle completed, total count: {count}')
+
+    def _do_battle(self) -> None:
+        """
+        执行单次战斗：点击挑战按钮进入战斗，等待战斗结束
+        参考 Orochi.run_alone 的实现
+        """
+        # 点击挑战按钮直到进入战斗
+        while True:
+            self.screenshot()
+            # 处理可能出现的确认弹窗
+            if (self.appear_then_click(self.I_UI_CONFIRM_SAMLL, interval=1) or
+                    self.appear_then_click(self.I_UI_CONFIRM, interval=1)):
+                continue
+            # 点击挑战按钮
+            if self.ocr_appear_click(self.O_FIRE, interval=1):
+                continue
+            # 挑战按钮消失，说明已进入战斗
+            if not self.ocr_appear(self.O_FIRE):
+                break
+        # 运行通用战斗流程
+        self.run_general_battle(config=self.get_general_battle_conf())
 
     def random_reward_click(self, exclude_click: list = None, click_now: bool = True) -> RuleClick:
         """
