@@ -427,6 +427,7 @@ class ScriptTask(StateMachine, GameUi, BaseActivity, SwitchSoul, ActivityShikiga
         count = 0
         wait_timer = Timer(timeout)
         wait_timer.start()
+        ocr_limit_timer = Timer(1).start()  # OCR 检测间隔，避免过于频繁
         while True:
             self.screenshot()
             # 检查次数限制
@@ -434,16 +435,18 @@ class ScriptTask(StateMachine, GameUi, BaseActivity, SwitchSoul, ActivityShikiga
                 logger.info(f'Battle loop reached max count: {max_count}')
                 break
             # 处理确认弹窗
-            if self.appear_then_click(self.I_UI_CONFIRM, interval=0.5):
-                wait_timer.reset()
-                continue
-            if self.appear_then_click(self.I_UI_CONFIRM_SAMLL, interval=0.5):
+            if (self.appear_then_click(self.I_UI_CONFIRM, interval=0.5)
+                    or self.appear_then_click(self.I_UI_CONFIRM_SAMLL, interval=0.5)):
                 wait_timer.reset()
                 continue
             # 处理奖励弹窗
             if self.ui_reward_appear_click():
                 wait_timer.reset()
                 continue
+            # OCR 检测间隔控制
+            if not ocr_limit_timer.reached():
+                continue
+            ocr_limit_timer.reset()
             # 检查是否在战斗界面（有挑战按钮）
             if not self.ocr_appear(self.O_FIRE):
                 # 超时检查：长时间无法识别挑战按钮
@@ -453,10 +456,10 @@ class ScriptTask(StateMachine, GameUi, BaseActivity, SwitchSoul, ActivityShikiga
                 continue
             # 识别到挑战按钮，重置计时器
             wait_timer.reset()
-            # 点击挑战并进行战斗
-            if self.start_battle():
-                count += 1
-                logger.info(f'Battle completed, total count: {count}')
+            # 点击挑战并进行战斗 (start_battle 内部会调用 run_general_battle 等待战斗结束)
+            self.start_battle()
+            count += 1
+            logger.info(f'Battle completed, total count: {count}')
 
     def random_reward_click(self, exclude_click: list = None, click_now: bool = True) -> RuleClick:
         """
