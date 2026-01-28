@@ -147,30 +147,54 @@ class ScriptTask(StateMachine, GameUi, BaseActivity, SwitchSoul, ActivityShikiga
     更新前请先看 ./README.md
     """
 
-    def run(self) -> None:
-        self.limit_time: timedelta = self.conf.general_climb.limit_time_v
-        #
-        for climb_type in self.conf.general_climb.run_sequence_v:
-            # 进入到活动的主页面，不是具体的战斗页面
-            self.ui_get_current_page()
-            self.ui_goto(game.page_climb_act)
-            try:
-                method_func = getattr(self, f'_run_{climb_type}')
-                method_func()
-            except LimitCountOut as e:
-                self.ui_click(self.I_UI_BACK_YELLOW, stop=self.I_TO_BATTLE_MAIN, interval=1)
-            except LimitTimeOut as e:
-                break
-            finally:
-                # 切换下一个爬塔类型
-                self.switch_next()
+    # def run(self) -> None:
+    #     self.limit_time: timedelta = self.conf.general_climb.limit_time_v
+    #     #
+    #     for climb_type in self.conf.general_climb.run_sequence_v:
+    #         # 进入到活动的主页面，不是具体的战斗页面
+    #         self.ui_get_current_page()
+    #         self.ui_goto(game.page_climb_act)
+    #         try:
+    #             method_func = getattr(self, f'_run_{climb_type}')
+    #             method_func()
+    #         except LimitCountOut as e:
+    #             self.ui_click(self.I_UI_BACK_YELLOW, stop=self.I_TO_BATTLE_MAIN, interval=1)
+    #         except LimitTimeOut as e:
+    #             break
+    #         finally:
+    #             # 切换下一个爬塔类型
+    #             self.switch_next()
+    #
+    #     # 返回庭院
+    #     logger.hr("Exit Shikigami", 2)
+    #     self.ui_get_current_page(False)
+    #     self.ui_goto(game.page_main)
+    #     if self.conf.general_climb.active_souls_clean:
+    #         self.set_next_run(task='SoulsTidy', success=False, finish=False, target=datetime.now())
+    #     self.set_next_run(task="ActivityShikigami", success=True)
+    #     raise TaskEnd
 
-        # 返回庭院
-        logger.hr("Exit Shikigami", 2)
-        self.ui_get_current_page(False)
-        self.ui_goto(game.page_main)
-        if self.conf.general_climb.active_souls_clean:
-            self.set_next_run(task='SoulsTidy', success=False, finish=False, target=datetime.now())
+    def run(self) -> None:
+        """
+        简化版 run 函数，直接调用 battle_loop 进行无限挑战
+        通过 TaskEnd 异常终止（client 端点击停止按钮会触发）
+        """
+        logger.hr('Start ActivityShikigami battle loop', 1)
+        self.limit_time: timedelta = None  # 不使用时间限制
+
+        try:
+            # 直接调用 battle_loop，不限次数，超时60秒
+            self.battle_loop(max_count=0, timeout=60)
+        except TaskEnd:
+            # client 点击停止按钮会抛出 TaskEnd 异常
+            logger.info('Battle loop stopped by user')
+            raise
+        finally:
+            # 确保任务结束时返回庭院
+            logger.hr("Exit Shikigami", 2)
+            self.ui_get_current_page(False)
+            self.ui_goto(game.page_main)
+
         self.set_next_run(task="ActivityShikigami", success=True)
         raise TaskEnd
 
