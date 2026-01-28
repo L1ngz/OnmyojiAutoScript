@@ -300,16 +300,18 @@ class ScriptTask(StateMachine, GameUi, BaseActivity, SwitchSoul, ActivityShikiga
         self.count_map[self.climb_type] = self.current_count
         for btn in (self.C_RANDOM_LEFT, self.C_RANDOM_RIGHT, self.C_RANDOM_TOP, self.C_RANDOM_BOTTOM):
             btn.name = "BATTLE_RANDOM"
-        ok_cnt, max_retry = 0, 5
+        win_clicked = False  # 标记是否已点击过胜利图标
         while 1:
             sleep(random.uniform(0.5, 1.5))
             self.screenshot()
-            # 达到最大重试次数则直接交给上层处理
-            if ok_cnt > max_retry:
-                break
-            # 识别到挑战说明已经退出战斗
-            if ok_cnt > 0 and self.ocr_appear(self.O_FIRE):
+            # 如果已点击过胜利图标，检测是否回到挑战界面
+            if win_clicked and self.ocr_appear(self.O_FIRE):
+                logger.info('Battle ended, back to challenge screen')
                 return True
+            # 如果已点击过胜利图标且不在战斗中，随机点击处理可能的奖励界面
+            if win_clicked and not self.is_in_battle(False):
+                self.random_reward_click(exclude_click=[self.C_RANDOM_BOTTOM])
+                continue
             # 战斗失败
             if self.appear(self.I_FALSE):
                 logger.warning("Battle failed")
@@ -317,8 +319,9 @@ class ScriptTask(StateMachine, GameUi, BaseActivity, SwitchSoul, ActivityShikiga
                 return False
             # 战斗成功
             if self.appear_then_click(self.I_WIN, interval=2):
+                win_clicked = True
                 continue
-            #  出现 “魂” 和 紫蛇皮
+            #  出现 "魂" 和 紫蛇皮
             if self.appear(self.I_REWARD):
                 logger.info('Win battle')
                 while 1:
@@ -333,13 +336,8 @@ class ScriptTask(StateMachine, GameUi, BaseActivity, SwitchSoul, ActivityShikiga
                         self.click(reward_click, interval=1.8)
                         continue
                 return True
-            # 已经不在战斗中了, 且奖励也识别过了, 则随机点击
-            # if ok_cnt > 0 and not self.is_in_battle(False):
-            #     self.random_reward_click(exclude_click=[self.C_RANDOM_BOTTOM])
-            #     ok_cnt += 1
-            #     continue
             # 战斗中随机滑动
-            if ok_cnt == 0 and random_click_swipt_enable:
+            if not win_clicked and random_click_swipt_enable:
                 self.random_click_swipt()
         return True
 
